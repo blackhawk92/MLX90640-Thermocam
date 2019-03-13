@@ -26,58 +26,24 @@ void MLX90640_I2CInit()
 
 }
 
-//Read a number of words from startAddress. Store into Data array.
-//Returns 0 if successful, -1 if error
 int MLX90640_I2CRead(uint8_t _deviceAddress, unsigned int startAddress, unsigned int nWordsRead, uint16_t *data)
 {
-
-  //Caller passes number of 'unsigned ints to read', increase this to 'bytes to read'
-  uint16_t bytesRemaining = nWordsRead * 2;
-
-  //It doesn't look like sequential read works. Do we need to re-issue the address command each time?
-
-  uint16_t dataSpot = 0; //Start at beginning of array
-
-  //Setup a series of chunked I2C_BUFFER_LENGTH byte reads
-  while (bytesRemaining > 0)
-  {
+  // nWordsRead must be <= 32767
     Wire.beginTransmission(_deviceAddress);
     Wire.write(startAddress >> 8); //MSB
     Wire.write(startAddress & 0xFF); //LSB
-    // Don't use the following code on ESP32, currently its Arduino I2C core is broken for this usage:
-    //if (Wire.endTransmission(false) != 0) //Do not release bus
-    //{
-    //  Serial.println("No ack read");
-    //  return (0); //Sensor did not ACK
-    //}
-    // Instead use the Wire.transact further below.
-
-    uint16_t numberOfBytesToRead = bytesRemaining;
-    if (numberOfBytesToRead > I2C_BUFFER_LENGTH) numberOfBytesToRead = I2C_BUFFER_LENGTH;
-    
-    // Make a new buffer to hold the Wire.transact result.
-    uint8_t _transact_buffer[I2C_BUFFER_LENGTH];
-    int err = Wire.transact(_transact_buffer, numberOfBytesToRead);
-    if (err != numberOfBytesToRead) {
-      Serial.print("Failed to read expected I2C bytes!");
-      return (0);
+    Wire.endTransmission(false);
+    i2c_err_t error = Wire.readTransmission(_deviceAddress, (uint8_t*) data, nWordsRead*2);
+    if(error != 0){//problems
+        Serial.printf("Block read from sensor(0x%02X) at address=%d of %d uint16_t's failed=%d(%s)\n",
+        _deviceAddress,startAddress,nWordsRead,error,Wire.getErrorText(error));
     }
-
-    // Now copy the transaction data out of the buffer and into the result.
-    for (uint16_t x = 0 ; x < numberOfBytesToRead; x += 2)
-    {
-      //Store data into array
-      data[dataSpot] = _transact_buffer[x] << 8; //MSB
-      data[dataSpot] |= _transact_buffer[x+1]; //LSB
-      dataSpot++;
+    else { // reverse byte order, sensor Big Endian, ESP32 Little Endian
+        for(auto a = 0; a<nWordsRead; a++){
+            data[a] = ((data[a] & 0xff)<<8) | (( data[a]>>8)&0xff);
+        }
     }
-    
-    bytesRemaining -= numberOfBytesToRead;
-
-    startAddress += numberOfBytesToRead / 2;
-  }
-
-  return (0); //Success
+    return 0;
 }
 
 

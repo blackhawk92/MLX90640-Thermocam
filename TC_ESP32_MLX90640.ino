@@ -97,11 +97,19 @@ void setup() {
   Wire.setClock(800000);
 
   // Set up Display.
+
+  pinMode(TFT_BL,OUTPUT);                                     // Backlight an
+  digitalWrite(TFT_BL,HIGH);
+
+  ledcSetup(2, 10000, 8);
+  ledcAttachPin(TFT_BL, 2);
+  ledcWrite(2, 100);
+  
   pinMode(TFT_DC, OUTPUT);
   SPI.begin();
-  SPI.setFrequency(80000000L);
+  SPI.setFrequency(SPI_FREQUENCY);
   Display.begin();
-  //Display.setRotation(3);
+  Display.setRotation(2);
   Display.fillScreen(C_BLACK);
 
   // get the cutoff points for the color interpolation routines
@@ -133,6 +141,9 @@ void readPixels() {
     {
       Serial.print("GetFrame Error: ");
       Serial.println(status);
+    } else
+    {
+      Serial.println("Got pixel data from MLX90640!");
     }
 
     float vdd = MLX90640_GetVdd(mlx90640Frame, &mlx90640);
@@ -254,5 +265,5 @@ void drawMeasurement() {
   Display.setTextColor(TFT_WHITE, TFT_BLACK);
   Display.setTextFont(2);
   Display.setTextSize(2);
-  Display.print(String(centerTemp).substring(0, 5) + " °C");
+  Display.print(String(centerTemp).substring(0, 5) + " Â°C");
 }
